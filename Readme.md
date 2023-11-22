@@ -1,4 +1,4 @@
-# Basic PornHub Plugin for GrayJay
+# Basic PornHub Plugin for Grayjay the app
 
 ## Basic workflow is working fine :smiley:
 
