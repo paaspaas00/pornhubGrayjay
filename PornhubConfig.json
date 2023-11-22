@@ -1,0 +1,23 @@
+{
+	"name": "PornHub",
+	"description": "Basic PornHub plugin for Grayjay",
+	"author": "mr. X",
+	"authorUrl": "",
+	
+	"sourceUrl": "",
+	"repositoryUrl": "",
+	"scriptUrl": "./PornhubScript.js",
+	"version": 1,
+	
+	"iconUrl": "./pornhub.png",
+	"id": "dce06efc-862e-11ee-b9d1-0242ac120002",
+	
+	"scriptSignature": "",
+	"scriptPublicKey": "",
+	"packages": ["Http", "DOMParser"],
+	
+	"allowEval": false,
+	"allowUrls": [
+		"www.pornhub.com"
+	]
+}
