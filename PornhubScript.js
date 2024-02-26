@@ -167,36 +167,46 @@ source.getContentDetails = function (url) {
 	var html = getPornhubContentData(url);
 
 	let flashvarsMatch = html.match(/var\s+flashvars_\d+\s*=\s*({.+?});/);
+
 	let flashvars = {};
 	if (flashvarsMatch) {
 		flashvars = JSON.parse(flashvarsMatch[1]);
 	}
+	log(flashvars);
 
 	var mediaDefinitions = flashvars["mediaDefinitions"];
+	log(mediaDefinitions);
+	var sources = [];
 
-	var sources = []
 
 	for (const mediaDefinition of mediaDefinitions) {
-		sources.push(new HLSSource({
-			name: "HLS",
-			url: mediaDefinition.videoUrl,
-			duration: flashvars.video_duration ?? 0,
-			priority: true
-		}));
-
-
-		// non funzia????
-		if (mediaDefinition.videoUrl.includes("get_media")) {
-			sources.push(new VideoUrlSource({
-				name: "mp4",
+		if(typeof mediaDefinition.defaultQuality === "boolean") {
+			// sometimes quality is [] instead of a bool or number
+			if(typeof mediaDefinition.quality === "object") continue;
+			log(mediaDefinition.quality)
+			let width = supportedResolutions[`${mediaDefinition.quality}`].width;
+			let height = supportedResolutions[`${mediaDefinition.quality}`].height;
+			sources.push(new HLSSource({
+				name: `${width}x${height}`,
+				width: width,
+				height: height,
 				url: mediaDefinition.videoUrl,
-				width: supportedResolutions["720"].width,
-				height: supportedResolutions["720"].height,
-				duration: flashvars.video_duration,
-				container: "video/mp4"
+				duration: flashvars.video_duration ?? 0,
+				priority: true
 			}));
+		} else if(typeof mediaDefinition.defaultQuality === "number") {
+			// doesn't work for now
+			// sources.push(new VideoUrlSource({
+			// 	name: "mp4",
+			// 	url: mediaDefinition.videoUrl,
+			// 	width: supportedResolutions[mediaDefinition.defaultQuality].width,
+			// 	height: supportedResolutions[mediaDefinition.defaultQuality].height,
+			// 	duration: flashvars.video_duration,
+			// 	container: "video/mp4"
+			// }));
+		} else {
+			continue;
 		}
-
 	}
 
 
