@@ -324,7 +324,9 @@ function getCommentPager(path, params, page) {
 	var html = getPornhubContentData(urlWithParams);
 
 	var comments = getComments(html);
-
+	// if no comments, return empty pager
+	if (comments.total === 0) return new PornhubCommentPager();
+	
 	return new PornhubCommentPager(comments.comments.map(c => {
 		return new Comment({
 			author: new PlatformAuthorLink(new PlatformID(PLATFORM, c.username, config.id), 
