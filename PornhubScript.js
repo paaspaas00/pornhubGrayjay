@@ -1,4 +1,3 @@
-
 const URL_BASE = "https://www.pornhub.com";
 
 const PLATFORM_CLAIMTYPE = 3;
