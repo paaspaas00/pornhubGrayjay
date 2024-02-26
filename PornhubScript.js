@@ -48,7 +48,7 @@ source.getHome = function () {
 
 source.searchSuggestions = function(query) {
 	if(query.length < 1) return [];
-	var json = JSON.parse(getPorhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + token + "&orientation=straight&q=" + query + "&alt=0"));
+	var json = JSON.parse(getPornhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + token + "&orientation=straight&q=" + query + "&alt=0"));
 	if (json.length == 0) return [];
 	var suggestions = json.queries;
 	// var suggestions = json.channels.forEach((m) => {
@@ -164,7 +164,7 @@ const supportedResolutions = {
 // TODO improve
 source.getContentDetails = function (url) {
 
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 
 	let flashvarsMatch = html.match(/var\s+flashvars_\d+\s*=\s*({.+?});/);
 	let flashvars = {};
@@ -258,7 +258,7 @@ function getVideoId(dom) {
 
 //Comments
 source.getComments = function (url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	var dom = domParser.parseFromString(html);
 	var videoId = getVideoId(dom);
 	var token = getToken(dom)
@@ -296,7 +296,7 @@ function getCommentPager(path, params, page) {
 	const url = URL_BASE + path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var comments = getComments(html);
 
@@ -436,7 +436,7 @@ function parseRelativeDate(relativeDate) {
 
 
 function getChannelInfo22(url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	let dom = domParser.parseFromString(html);
 
 	var channelName = ""
@@ -493,7 +493,7 @@ function getChannelInfo22(url) {
 
 // todo forse va bene per pornstar??
 //function getChannelContents(url, ulElement) {
-//	var html = getPorhubContentData(url);
+//	var html = getPornhubContentData(url);
 //	let dom = domParser.parseFromString(html);
 //	
 //
@@ -593,7 +593,7 @@ function getChannelInfo22(url) {
 
 
 function getChannelInfo(url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	let dom = domParser.parseFromString(html);
 
 	var channelThumbnail = dom.getElementById("getAvatar").getAttribute("src");
@@ -622,7 +622,7 @@ function getChannelInfo(url) {
 
 
 function getPornstarInfo(url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	let dom = domParser.parseFromString(html);
 
 	var channelName = ""
@@ -739,7 +739,7 @@ function getChannelPager(path, params, page) {
 	const url = URL_BASE + path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var channels = getChannels(html, "searchChannelsSection");
 
@@ -779,7 +779,7 @@ function getChannels(html) {
 
 	var hasNextPage = false; 
 	var pageNextNode = dom.getElementsByClassName("page_next");
-	if (pageNextNode.lenght > 0) {
+	if (pageNextNode.length > 0) {
 		hasNextPage = pageNextNode[0].firstChild.getAttribute("href") == "" ? false : true;
 	}
 
@@ -803,7 +803,7 @@ function getChannelVideosPager(path, params, page) {
 	const url = path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var vids = getChannelContents(html);
 
@@ -882,7 +882,7 @@ function getVideoPager(path, params, page) {
 	const url = URL_BASE + path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var vids = getVideos(html, "videoSearchResult");
 	
@@ -995,7 +995,7 @@ function getVideos(html, ulId) {
 }
 
 
-function getPorhubContentData(url) {
+function getPornhubContentData(url) {
 
 	const resp = http.GET(url, {});
 	if (!resp.isOk)
