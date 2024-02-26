@@ -6,7 +6,10 @@ const PLATFORM_CLAIMTYPE = 3;
 const PLATFORM = "PornHub";
 
 var config = {};
-
+// session token
+var token = "";
+// headers (including cookie by default, since it's used for each session later)
+var headers = {"Cookie": ""};
 
 /**
  * Build a query
@@ -42,25 +45,16 @@ source.getHome = function () {
 };
 
 
-//var token = ""
 
 source.searchSuggestions = function(query) {
-
-	//if (token == "") {
-	//	// todo need to always fetch page?
-	//	var html = getPorhubContentData("https://www.pornhub.com");
-	//	var nodes = domParser.parseFromString(html);
-	//	token = nodes.querySelector("div#searchInput").getAttribute("data-token");
-	//}
-	//var url = URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + "MTcwMDY1ODczMfrwOfTXBBSZjUqcT7lVRGoirmVyvPkGLCYGiK_LvwS7ie1LKz-AwcWP_Uh8_mkCZ1M8WegpRzKH_wdQKol3ZoY." + "&orientation=straight&q=" + query + "&alt=0"
-	//return getPorhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + "MTcwMDY1ODczMfrwOfTXBBSZjUqcT7lVRGoirmVyvPkGLCYGiK_LvwS7ie1LKz-AwcWP_Uh8_mkCZ1M8WegpRzKH_wdQKol3ZoY." + "&orientation=straight&q=" + query + "&alt=0")
+	if(query.length < 1) return [];
 	var json = JSON.parse(getPorhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + token + "&orientation=straight&q=" + query + "&alt=0"));
-
-	var channelNames = json.channels.forEach((m) => {
-		return m.name
-	});
-
-	return channelNames
+	if (json.length == 0) return [];
+	var suggestions = json.queries;
+	// var suggestions = json.channels.forEach((m) => {
+	// 	return m.name
+	// });
+	return suggestions
 };
 
 source.getSearchCapabilities = () => {
