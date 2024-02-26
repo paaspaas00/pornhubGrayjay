@@ -246,9 +246,23 @@ source.getContentDetails = function (url) {
 
 
 
-function getToken(dom) {
-	var token = dom.querySelector("#searchInput").getAttribute("data-token");
-	return token
+// the only things you need for a valid session are as follows:
+// 1.) token
+// 2.) cookie labeled "ss" in headers
+// this will allow you to get search suggestions!!
+function refreshSession() {
+	const resp = http.GET(URL_BASE, {});
+	if (!resp.isOk)
+		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
+	else {
+		var dom = domParser.parseFromString(resp.body);
+		// the token is found here
+		token = dom.querySelector("#searchInput").getAttribute("data-token");
+		// and the data for the ss cookie is found here
+		const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
+		headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`
+		log("New session created")
+	}
 }
 
 function getVideoId(dom) {
@@ -261,9 +275,10 @@ source.getComments = function (url) {
 	var html = getPornhubContentData(url);
 	var dom = domParser.parseFromString(html);
 	var videoId = getVideoId(dom);
-	var token = getToken(dom)
+	if(token == "") refreshSession();
 	return getCommentPager(`/comment/show?id=${videoId}&popular=0&what=video&token=${token}`, {}, 1);
 }
+
 
 source.getSubComments = function (comment) {
 	//todo
@@ -996,14 +1011,18 @@ function getVideos(html, ulId) {
 
 
 function getPornhubContentData(url) {
-
-	const resp = http.GET(url, {});
+	if(headers["Cookie"].length === 0) {
+		refreshSession();
+	}
+	else {
+		log("Session is good");
+	}
+	const resp = http.GET(url, headers);
 	if (!resp.isOk)
 		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
 	else {
 		return resp.body
 	}
-
 }
 
 function parseViewsSuffix(viewsStr) {
