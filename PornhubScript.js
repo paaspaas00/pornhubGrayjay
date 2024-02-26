@@ -151,11 +151,12 @@ source.isContentDetailsUrl = function(url) {
 
 
 const supportedResolutions = {
-	//'1080p': { width: 1920, height: 1080 },
-	'720p': { width: 1280, height: 720 },
-	'480p': { width: 854, height: 480 },
-	'360p': { width: 640, height: 360 },
-	'144p': { width: 256, height: 144 }
+	'1080': { width: 1920, height: 1080 },
+	'720': { width: 1280, height: 720 },
+	'480': { width: 854, height: 480 },
+	'360': { width: 640, height: 360 },
+	'240': { width: 352, height: 240 },
+	'144': { width: 256, height: 144 }
 };
 
 
@@ -189,8 +190,8 @@ source.getContentDetails = function (url) {
 			sources.push(new VideoUrlSource({
 				name: "mp4",
 				url: mediaDefinition.videoUrl,
-				width: supportedResolutions["720p"].width,
-				height: supportedResolutions["720p"].height,
+				width: supportedResolutions["720"].width,
+				height: supportedResolutions["720"].height,
 				duration: flashvars.video_duration,
 				container: "video/mp4"
 			}));
