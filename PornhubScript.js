@@ -1,4 +1,3 @@
-
 const URL_BASE = "https://www.pornhub.com";
 
 const PLATFORM_CLAIMTYPE = 3;
@@ -6,7 +5,10 @@ const PLATFORM_CLAIMTYPE = 3;
 const PLATFORM = "PornHub";
 
 var config = {};
-
+// session token
+var token = "";
+// headers (including cookie by default, since it's used for each session later)
+var headers = {"Cookie": ""};
 
 /**
  * Build a query
@@ -42,25 +44,16 @@ source.getHome = function () {
 };
 
 
-//var token = ""
 
 source.searchSuggestions = function(query) {
-
-	//if (token == "") {
-	//	// todo need to always fetch page?
-	//	var html = getPorhubContentData("https://www.pornhub.com");
-	//	var nodes = domParser.parseFromString(html);
-	//	token = nodes.querySelector("div#searchInput").getAttribute("data-token");
-	//}
-	//var url = URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + "MTcwMDY1ODczMfrwOfTXBBSZjUqcT7lVRGoirmVyvPkGLCYGiK_LvwS7ie1LKz-AwcWP_Uh8_mkCZ1M8WegpRzKH_wdQKol3ZoY." + "&orientation=straight&q=" + query + "&alt=0"
-	//return getPorhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + "MTcwMDY1ODczMfrwOfTXBBSZjUqcT7lVRGoirmVyvPkGLCYGiK_LvwS7ie1LKz-AwcWP_Uh8_mkCZ1M8WegpRzKH_wdQKol3ZoY." + "&orientation=straight&q=" + query + "&alt=0")
-	var json = JSON.parse(getPorhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + token + "&orientation=straight&q=" + query + "&alt=0"));
-
-	var channelNames = json.channels.forEach((m) => {
-		return m.name
-	});
-
-	return channelNames
+	if(query.length < 1) return [];
+	var json = JSON.parse(getPornhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + token + "&orientation=straight&q=" + query + "&alt=0"));
+	if (json.length == 0) return [];
+	var suggestions = json.queries;
+	// var suggestions = json.channels.forEach((m) => {
+	// 	return m.name
+	// });
+	return suggestions
 };
 
 source.getSearchCapabilities = () => {
@@ -170,7 +163,7 @@ const supportedResolutions = {
 // TODO improve
 source.getContentDetails = function (url) {
 
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 
 	let flashvarsMatch = html.match(/var\s+flashvars_\d+\s*=\s*({.+?});/);
 	let flashvars = {};
@@ -252,9 +245,23 @@ source.getContentDetails = function (url) {
 
 
 
-function getToken(dom) {
-	var token = dom.querySelector("#searchInput").getAttribute("data-token");
-	return token
+// the only things you need for a valid session are as follows:
+// 1.) token
+// 2.) cookie labeled "ss" in headers
+// this will allow you to get search suggestions!!
+function refreshSession() {
+	const resp = http.GET(URL_BASE, {});
+	if (!resp.isOk)
+		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
+	else {
+		var dom = domParser.parseFromString(resp.body);
+		// the token is found here
+		token = dom.querySelector("#searchInput").getAttribute("data-token");
+		// and the data for the ss cookie is found here
+		const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
+		headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`
+		log("New session created")
+	}
 }
 
 function getVideoId(dom) {
@@ -264,12 +271,13 @@ function getVideoId(dom) {
 
 //Comments
 source.getComments = function (url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	var dom = domParser.parseFromString(html);
 	var videoId = getVideoId(dom);
-	var token = getToken(dom)
+	if(token == "") refreshSession();
 	return getCommentPager(`/comment/show?id=${videoId}&popular=0&what=video&token=${token}`, {}, 1);
 }
+
 
 source.getSubComments = function (comment) {
 	//todo
@@ -302,7 +310,7 @@ function getCommentPager(path, params, page) {
 	const url = URL_BASE + path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var comments = getComments(html);
 
@@ -442,7 +450,7 @@ function parseRelativeDate(relativeDate) {
 
 
 function getChannelInfo22(url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	let dom = domParser.parseFromString(html);
 
 	var channelName = ""
@@ -499,7 +507,7 @@ function getChannelInfo22(url) {
 
 // todo forse va bene per pornstar??
 //function getChannelContents(url, ulElement) {
-//	var html = getPorhubContentData(url);
+//	var html = getPornhubContentData(url);
 //	let dom = domParser.parseFromString(html);
 //	
 //
@@ -599,7 +607,7 @@ function getChannelInfo22(url) {
 
 
 function getChannelInfo(url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	let dom = domParser.parseFromString(html);
 
 	var channelThumbnail = dom.getElementById("getAvatar").getAttribute("src");
@@ -628,7 +636,7 @@ function getChannelInfo(url) {
 
 
 function getPornstarInfo(url) {
-	var html = getPorhubContentData(url);
+	var html = getPornhubContentData(url);
 	let dom = domParser.parseFromString(html);
 
 	var channelName = ""
@@ -745,7 +753,7 @@ function getChannelPager(path, params, page) {
 	const url = URL_BASE + path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var channels = getChannels(html, "searchChannelsSection");
 
@@ -785,7 +793,7 @@ function getChannels(html) {
 
 	var hasNextPage = false; 
 	var pageNextNode = dom.getElementsByClassName("page_next");
-	if (pageNextNode.lenght > 0) {
+	if (pageNextNode.length > 0) {
 		hasNextPage = pageNextNode[0].firstChild.getAttribute("href") == "" ? false : true;
 	}
 
@@ -809,7 +817,7 @@ function getChannelVideosPager(path, params, page) {
 	const url = path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var vids = getChannelContents(html);
 
@@ -888,7 +896,7 @@ function getVideoPager(path, params, page) {
 	const url = URL_BASE + path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = getPorhubContentData(urlWithParams);
+	var html = getPornhubContentData(urlWithParams);
 
 	var vids = getVideos(html, "videoSearchResult");
 	
@@ -1001,15 +1009,19 @@ function getVideos(html, ulId) {
 }
 
 
-function getPorhubContentData(url) {
-
-	const resp = http.GET(url, {});
+function getPornhubContentData(url) {
+	if(headers["Cookie"].length === 0) {
+		refreshSession();
+	}
+	else {
+		log("Session is good");
+	}
+	const resp = http.GET(url, headers);
 	if (!resp.isOk)
 		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
 	else {
 		return resp.body
 	}
-
 }
 
 function parseViewsSuffix(viewsStr) {
