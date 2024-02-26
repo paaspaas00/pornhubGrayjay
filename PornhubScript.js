@@ -172,10 +172,10 @@ source.getContentDetails = function (url) {
 	if (flashvarsMatch) {
 		flashvars = JSON.parse(flashvarsMatch[1]);
 	}
-	log(flashvars);
+	//log(flashvars);
 
 	var mediaDefinitions = flashvars["mediaDefinitions"];
-	log(mediaDefinitions);
+	//log(mediaDefinitions);
 	var sources = [];
 
 
@@ -183,7 +183,7 @@ source.getContentDetails = function (url) {
 		if(typeof mediaDefinition.defaultQuality === "boolean") {
 			// sometimes quality is [] instead of a bool or number
 			if(typeof mediaDefinition.quality === "object") continue;
-			log(mediaDefinition.quality)
+			//log(mediaDefinition.quality)
 			let width = supportedResolutions[`${mediaDefinition.quality}`].width;
 			let height = supportedResolutions[`${mediaDefinition.quality}`].height;
 			sources.push(new HLSSource({
