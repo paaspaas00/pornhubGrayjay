@@ -8,7 +8,7 @@
 
 Follow this for development [plugin-development.md](https://gitlab.futo.org/videostreaming/grayjay/-/blob/master/plugin-development.md)
 
-### Method two
+### Method two (easy, just temporary deploy)
 
 - Run a local HTTP server with:
 
@@ -17,13 +17,19 @@ Follow this for development [plugin-development.md](https://gitlab.futo.org/vide
     sudo python3 -m http.server -b 0.0.0.0 8080
     ```
 
+    or, if **on Windows**, first install Python via the Microsoft Store or via Anaconda or from the official site, then
+    ```bat
+    cd <PLUGIN_ROOT>
+    python -m http.server -b 0.0.0.0 8080
+    ```
+
     8080 will be `<PORT>`
 
-- Change the `sourceUrl` in `PornhubConfig.json` file to "`<PC_ADDRESS>:<PORT>/PornhubConfig.json`"
+- Change the `sourceUrl` in `PornhubConfig.json` file to `http://<PC_ADDRESS>:<PORT>/PornhubConfig.json`
 
-- Create a QR code with: "`grayjay://plugin/http://<PC_ADDRESS>:<PORT>/PornhubConfig.json`"
+- Create a QR code with: `http://<PC_ADDRESS>:<PORT>/PornhubConfig.json` from [here](https://www.qrcode-monkey.com/) or wherever
 
-- Scan the QR code via the app
+- In Grayjay, go to `Sources`, tap the `+`, scan the QR code and install
 
 ## What's working:
 
