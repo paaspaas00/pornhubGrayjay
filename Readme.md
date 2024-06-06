@@ -4,6 +4,12 @@
 
 ## Try it
 
+GrayJay -> Sources -> +
+And scan this QR code
+
+![qr-code (1)](https://github.com/paaspaas00/pornhubGrayjay/assets/151774837/3c29f233-deb9-46ec-9c1a-fcdf017a9815)
+
+
 ### Method one:
 
 Follow this for development [plugin-development.md](https://gitlab.futo.org/videostreaming/grayjay/-/blob/master/plugin-development.md)
