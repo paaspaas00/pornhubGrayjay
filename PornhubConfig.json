@@ -12,8 +12,6 @@
 	"iconUrl": "./pornhub.png",
 	"id": "dce06efc-862e-11ee-b9d1-0242ac120002",
 	
-	"scriptSignature": "",
-	"scriptPublicKey": "",
 	"packages": ["Http", "DOMParser"],
 	
 	"allowEval": false,
