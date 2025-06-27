@@ -281,6 +281,7 @@ function refreshSession() {
 		var dom = domParser.parseFromString(resp.body);
 		
 		// Add null check for search input
+
 		const searchInput = dom.querySelector("#searchInput");
 		if (searchInput) {
 			token = searchInput.getAttribute("data-token");
@@ -289,7 +290,7 @@ function refreshSession() {
 			// Try alternative selector or method
 		}
 		
-		// Add null check for meta tag
+		// Add null check for meta tagAdd commentMore actions
 		const metaTag = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]");
 		if (metaTag) {
 			const adContextInfo = metaTag.getAttribute("data-info");
@@ -298,8 +299,10 @@ function refreshSession() {
 			log("Warning: meta tag not found, session cookie extraction failed");
 			// Try alternative method
 		}
-		
+
 		log("New session created")
+
+
 	}
 }
 
