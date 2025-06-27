@@ -82,7 +82,7 @@ source.search = function (query, type, order, filters) {
 	//	params.isLive = false;
 	//}
 
-	return getVideoPager("/video/search?search=", {search: query}, 1);
+	return getVideoPager("/video/search", {search: query}, 1);
 };
 
 source.getSearchChannelContentsCapabilities = function () {
@@ -892,7 +892,7 @@ function getVideoPager(path, params, page) {
 
 	var html = getPornhubContentData(urlWithParams);
 
-	var vids = getVideos(html, "videoCategory");
+	var vids = getVideos(html, "videoSearchResult");
 	
 	return new PornhubVideoPager(vids.videos.map(v => {
 		return new PlatformVideo({
@@ -910,7 +910,7 @@ function getVideoPager(path, params, page) {
 			isLive: false
 		});
 
-	}), vids.totalElemsPages > (start + count), path, params, page);
+	}), true, path, params, page);
 }
 
 
@@ -922,81 +922,92 @@ function getVideos(html, ulId) {
 	// Find the ul element with id ulId
 	var ulElement = node.getElementById(ulId);
 
-	var pagingIndication = node.getElementsByClassName("showingCounter")[0].textContent.trim()
-	var indexOfTotalStr = pagingIndication.indexOf("of "); // "showing XX-ZZ of TOTAL"
-	const total = parseInt(pagingIndication.substring(indexOfTotalStr + 3), 10);
+	var total = 1; 
+
+	var pagingIndication = node.getElementsByClassName("showingCounter")[0];
+	if (pagingIndication !== undefined) {
+		pagingIndication = node.getElementsByClassName("showingCounter")[0];
+		var indexOfTotalStr = pagingIndication.indexOf("of "); // "showing XX-ZZ of TOTAL"
+		total = parseInt(pagingIndication.substring(indexOfTotalStr + 3), 10);
+		log(`getVideos total: ${total}`);
+	}
 
 	var resultArray = []
 
 	// Check if the ul element with id "singleFeedSection" exists
-	if (ulElement) {
-		// Get all li elements inside the ul
-		var liElements = ulElement.querySelectorAll("li");
 
-		// Iterate through each li element
-		liElements.forEach(function (li) {
+    // Check if the ul element exists
+    if (ulElement) {
+        // Get all li elements inside the ul with class "pcVideoListItem" (new class)
+        const liElements = ulElement.querySelectorAll("li.pcVideoListItem");
 
-			// Get the id attribute of the li element
-			var liId = li.getAttribute("id");
+        log(`getVideos found ${liElements.length} li elements`);
 
-			// Check if the id starts with "v" and is followed by digits only
+        // Iterate through each li element
+        liElements.forEach(function (li) {
+            // Get the data-video-id attribute of the li element for the videoId
+            const videoId = li.getAttribute("data-video-id");
 
-			if (liId != "") {
-				// Find the first <a> tag inside the li
-				var aElement = li.querySelector('a');
+            // Ensure a valid videoId is found and it's not the ad element (which might have no data-video-id or a non-numeric id)
+            if (videoId && !isNaN(videoId)) {
+                // Find the first <a> tag inside the li which is the video link
+                const aElement = li.querySelector('a.js-linkVideoThumb');
 
-				var viewsStr = li.getElementsByClassName("videoDetailsBlock")[0].getElementsByClassName("views")[0].textContent.trim()
-				var views = parseNumberSuffix(viewsStr);
+                if (aElement) {
+                    // Get the "href" attribute as "videoUrl"
+                    const videoUrl = URL_BASE + aElement.getAttribute('href');
 
-				var authorInfoNode = li.getElementsByClassName("usernameWrap")[0].firstChild;
+                    // Find the <img> tag inside the <a>
+                    const imgElement = aElement.querySelector('img.js-videoThumb');
 
-				var authorInfo = {
-					channel: URL_BASE + authorInfoNode.getAttribute("href"),
-					authorName: authorInfoNode.textContent.trim()
-				}
+                    if (imgElement) {
+                        // Get the "src" attribute as "thumbnailUrl"
+                        const thumbnailUrl = imgElement.getAttribute('src');
 
-				// Check if an <a> tag is found
-				if (aElement) {
+                        // Title can be from the img's alt or data-title, or the a tag's data-title, or the .thumbnailTitle span
+                        const title = imgElement.getAttribute("alt") || imgElement.getAttribute("data-title") || aElement.getAttribute("data-title");
 
-					//var duration = li.querySelectorAll("var").
-					var durationStr = aElement.getElementsByClassName("duration")[0].textContent.trim()
-					var duration = parseDuration(durationStr);
+                        // Get the duration string from the <var> tag with class "duration"
+                        const durationVar = aElement.querySelector(".duration");
+                        const durationStr = durationVar ? durationVar.textContent.trim() : "0:00";
+                        const duration = parseDuration(durationStr);
 
-					// Get the "href" attribute as "videoUrl"
-					var videoUrl = URL_BASE + aElement.getAttribute('href');
+                        // Get the views string from the <var> tag inside the span with class "views"
+                        const viewsSpan = li.querySelector(".views var");
+                        const viewsStr = viewsSpan ? viewsSpan.textContent.trim() : "0";
+                        const views = parseNumberSuffix(viewsStr);
 
-					// Find the <img> tag inside the <a>
-					var imgElement = aElement.querySelector('img');
+                        // Get author information
+                        const authorLink = li.querySelector(".usernameWrap a");
+                        let authorInfo = {
+                            channel: "",
+                            authorName: ""
+                        };
+                        if (authorLink) {
+                            authorInfo.channel = URL_BASE + authorLink.getAttribute("href");
+                            authorInfo.authorName = authorLink.textContent.trim();
+                        }
 
-					// Check if an <img> tag is found
-					if (imgElement) {
-						// Get the "src" attribute as "thumbnailUrl"
-						var thumbnailUrl = imgElement.getAttribute('src');
+                        // Create an object with the desired properties and push it to the result array
+                        resultArray.push({
+                            id: videoId,
+                            videoUrl: videoUrl,
+                            title: title,
+                            thumbnailUrl: thumbnailUrl,
+                            duration: duration,
+                            authorInfo: authorInfo,
+                            views: views,
+                        });
+                    }
+                }
+            }
+        });
+    }
 
-						// Title
-						var title = imgElement.getAttribute("alt");
-
-
-						var videoId = imgElement.getAttribute("data-video-id");
-
-						// Create an object with the desired properties and push it to the result array
-						resultArray.push({
-							id: videoId,
-							videoUrl: videoUrl,
-							title: title,
-							thumbnailUrl: thumbnailUrl,
-							duration: duration,
-							authorInfo: authorInfo,
-							views: views,
-						});
-					}
-				}
-			}
-		});
-	}
+	log(resultArray.length + " videos found");
 
 	return {
-		totalElemsPages: total,
+		totalElemsPages: undefined,
 		videos: resultArray
 	};
 
@@ -1012,7 +1023,7 @@ function getPornhubContentData(url) {
 	}
 	const resp = http.GET(url, headers);
 	if (!resp.isOk)
-		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
+		throw new ScriptException("Failed request [" + url + "] (" + resp.code + ")");
 	else {
 		return resp.body
 	}
