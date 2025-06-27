@@ -82,7 +82,7 @@ source.search = function (query, type, order, filters) {
 	//	params.isLive = false;
 	//}
 
-	return getVideoPager("/video/search", {search: query}, 1);
+	return getVideoPager("/video/search?search=", {search: query}, 1);
 };
 
 source.getSearchChannelContentsCapabilities = function () {
@@ -279,11 +279,26 @@ function refreshSession() {
 		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
 	else {
 		var dom = domParser.parseFromString(resp.body);
-		// the token is found here
-		token = dom.querySelector("#searchInput").getAttribute("data-token");
-		// and the data for the ss cookie is found here
-		const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
-		headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`
+		
+		// Add null check for search input
+		const searchInput = dom.querySelector("#searchInput");
+		if (searchInput) {
+			token = searchInput.getAttribute("data-token");
+		} else {
+			log("Warning: #searchInput not found, token extraction failed");
+			// Try alternative selector or method
+		}
+		
+		// Add null check for meta tag
+		const metaTag = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]");
+		if (metaTag) {
+			const adContextInfo = metaTag.getAttribute("data-info");
+			headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`;
+		} else {
+			log("Warning: meta tag not found, session cookie extraction failed");
+			// Try alternative method
+		}
+		
 		log("New session created")
 	}
 }
