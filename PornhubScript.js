@@ -165,7 +165,7 @@ source.getChannelContents = function (url, type, order, filters) {
 
 
 source.isContentDetailsUrl = function(url) {
-	return url.startsWith(URL_BASE + "/view_video.php?viewkey=");
+	return url.includes(".pornhub.com/view_video.php?viewkey=") || url.includes("/view_video.php?viewkey=");
 };
 
 
@@ -255,7 +255,7 @@ source.getContentDetails = function (url) {
 
 	// note: subtitles are in https://www.pornhub.com/video/caption?id={videoId}&language_id=1&caption_type=0 if present
  
-	return new PlatformVideoDetails({
+	const details = new PlatformVideoDetails({
 		id: new PlatformID(PLATFORM, videoId, config.id),
 		name: flashvars.video_title,
 		thumbnails: new Thumbnails([new Thumbnail(flashvars.image_url, 0)]),
@@ -273,7 +273,282 @@ source.getContentDetails = function (url) {
 		video: new VideoSourceDescriptor(sources),
 		//subtitles: subtitles
 	});
+
+    details.getContentRecommendations = function () {
+        return source.getContentRecommendations(url);
+    };
+
+	return details;
 };
+
+// Get content recommendations based on a video URL
+source.getContentRecommendations = function(url) {
+	var html = getPornhubContentData(url);
+	var dom = domParser.parseFromString(html);
+
+	// Find all li.pcVideoListItem in the page (these are related videos)
+	var liElements = dom.querySelectorAll("li.pcVideoListItem");
+
+	if (liElements.length === 0) {
+		log("No recommendations found");
+		return new ContentPager([], false);
+	}
+
+	var resultArray = [];
+
+	liElements.forEach(function (li) {
+		const videoId = li.getAttribute("data-video-id");
+		if (videoId && !isNaN(videoId)) {
+			const aElement = li.querySelector('a.thumbnailTitle, a[href*="view_video"]');
+			if (aElement) {
+				const videoUrl = aElement.getAttribute('href');
+				const imgElement = li.querySelector('img');
+				if (imgElement && videoUrl) {
+					const thumbnailUrl = imgElement.getAttribute('src') || imgElement.getAttribute('data-src') || imgElement.getAttribute('data-thumb_url');
+					const title = aElement.getAttribute("title") || aElement.textContent.trim() || imgElement.getAttribute("alt");
+					const durationVar = li.querySelector(".duration, var.duration");
+					const durationStr = durationVar ? durationVar.textContent.trim() : "0:00";
+					const duration = parseDuration(durationStr);
+					const viewsSpan = li.querySelector(".views var, .views");
+					const viewsStr = viewsSpan ? viewsSpan.textContent.trim() : "0";
+					const views = viewsStr && viewsStr.includes("K") || viewsStr.includes("M") ? parseNumberSuffix(viewsStr) : 0;
+
+					const authorLink = li.querySelector(".usernameWrap a, a[href*='/model/'], a[href*='/pornstar/'], a[href*='/channels/']");
+					let authorInfo = {
+						channel: "",
+						authorName: ""
+					};
+					if (authorLink) {
+						authorInfo.channel = URL_BASE + authorLink.getAttribute("href");
+						authorInfo.authorName = authorLink.textContent.trim();
+					}
+
+					resultArray.push(new PlatformVideo({
+						id: new PlatformID(PLATFORM, videoId, config.id),
+						name: title ?? "",
+						thumbnails: new Thumbnails([new Thumbnail(thumbnailUrl, 0)]),
+						author: new PlatformAuthorLink(new PlatformID(PLATFORM, authorInfo.authorName, config.id),
+							authorInfo.authorName,
+							authorInfo.channel,
+							""),
+						datetime: undefined,
+						duration: duration,
+						viewCount: views,
+						url: videoUrl.startsWith("http") ? videoUrl : URL_BASE + videoUrl,
+						isLive: false
+					}));
+				}
+			}
+		}
+	});
+
+	log(`Found ${resultArray.length} recommendations`);
+	return new ContentPager(resultArray, false);
+};
+
+// Get shorts from the /shorties/ page
+source.getShorts = function(context) {
+	// Parse context
+	var from = 1;
+	var count = 12;
+
+	if (typeof context === 'string') {
+		try {
+			const parsed = JSON.parse(context);
+			from = parsed.from ?? 1;
+			count = parsed.count ?? 12;
+		} catch (e) {
+			// Use defaults
+		}
+	} else if (context) {
+		from = context.from ?? 1;
+		count = context.count ?? 12;
+	}
+
+	return getShortsPager(from, count);
+};
+
+function getShortsPager(from, count) {
+	log(`getShortsPager from=${from} count=${count}`);
+
+	// PornHub's /shorties page returns random shorts on each visit
+	// Not paginated - each fetch gets a fresh random set
+	const url = URL_BASE + "/shorties";
+
+	var html = getPornhubContentData(url);
+
+	// Extract JSON_SHORTIES from the JavaScript in the HTML
+	// Pattern can be either:
+	// 1. JSON_SHORTIES = insertAfterNthPosition([...]);
+	// 2. if (SHOW_SHORTIES_ADS) { JSON_SHORTIES = insertAfterNthPosition([...]); }
+
+	// Find the line that assigns JSON_SHORTIES
+	var startIdx = html.indexOf('JSON_SHORTIES = insertAfterNthPosition([');
+	if (startIdx === -1) {
+		log("No JSON_SHORTIES assignment found in page");
+		return new PornhubVideoPager([], false, "/shorties", {}, 1);
+	}
+
+	// Extract the JSON array - find the matching closing bracket and semicolon
+	var arrayStart = html.indexOf('[', startIdx);
+	var bracketCount = 0;
+	var arrayEnd = -1;
+	var inString = false;
+	var escapeNext = false;
+
+	for (var i = arrayStart; i < html.length; i++) {
+		var char = html[i];
+
+		if (escapeNext) {
+			escapeNext = false;
+			continue;
+		}
+
+		if (char === '\\') {
+			escapeNext = true;
+			continue;
+		}
+
+		if (char === '"' && !escapeNext) {
+			inString = !inString;
+			continue;
+		}
+
+		if (inString) continue;
+
+		if (char === '[') {
+			bracketCount++;
+		} else if (char === ']') {
+			bracketCount--;
+			if (bracketCount === 0) {
+				arrayEnd = i + 1;
+				break;
+			}
+		}
+	}
+
+	if (arrayEnd === -1) {
+		log("Could not find end of JSON_SHORTIES array");
+		return new PornhubVideoPager([], false, "/shorties", {}, 1);
+	}
+
+	var jsonString = html.substring(arrayStart, arrayEnd);
+	if (!jsonString) {
+		log("No JSON_SHORTIES data extracted");
+		return new PornhubVideoPager([], false, "/shorties", {}, 1);
+	}
+
+	var shortsData;
+	try {
+		shortsData = JSON.parse(jsonString);
+	} catch (e) {
+		log("Failed to parse JSON_SHORTIES: " + e);
+		return new PornhubVideoPager([], false, "/shorties", {}, 1);
+	}
+
+	if (!shortsData || shortsData.length === 0) {
+		log("No shorts data found");
+		return new PornhubVideoPager([], false, "/shorties", {}, 1);
+	}
+
+	var resultArray = [];
+
+	shortsData.forEach(function (short) {
+		if (!short.videoId) return;
+
+		const videoId = short.videoId.toString();
+		const title = short.videoTitle || "";
+		const thumbnailUrl = short.imageUrl || "";
+		const videoUrl = short.linkUrl || "";
+		const authorName = short.name || "";
+		const authorUrl = short.profileUrl || "";
+
+		// Calculate duration from mediaDefinitions if available
+		var duration = 0;
+		if (short.trackingTimeWatched && short.trackingTimeWatched.video_duration) {
+			duration = short.trackingTimeWatched.video_duration;
+		}
+
+		// Parse likes as views (shorties don't have view count)
+		var views = 0;
+		if (short.likeInfo) {
+			const likeStr = short.likeInfo.toString();
+			if (likeStr.includes("K") || likeStr.includes("M")) {
+				views = parseNumberSuffix(likeStr);
+			} else {
+				views = parseInt(likeStr) || 0;
+			}
+		}
+
+		// Extract video sources from mediaDefinitions
+		var sources = [];
+		if (short.mediaDefinitions && Array.isArray(short.mediaDefinitions)) {
+			short.mediaDefinitions.forEach(function (mediaDefinition) {
+				if (mediaDefinition.format === "hls" && mediaDefinition.videoUrl) {
+					var quality = mediaDefinition.quality;
+					var resolution = supportedResolutions[quality];
+					if (resolution) {
+						sources.push(new HLSSource({
+							name: quality + "p",
+							width: resolution.width,
+							height: resolution.height,
+							url: mediaDefinition.videoUrl,
+							duration: duration,
+							priority: mediaDefinition.defaultQuality === true
+						}));
+					}
+				}
+			});
+		}
+
+		// If we have sources, return PlatformVideoDetails (playable)
+		// If no sources, return PlatformVideo (metadata only)
+		if (sources.length > 0) {
+			resultArray.push(new PlatformVideoDetails({
+				id: new PlatformID(PLATFORM, videoId, config.id),
+				name: title ?? "",
+				thumbnails: new Thumbnails([new Thumbnail(thumbnailUrl, 0)]),
+				author: new PlatformAuthorLink(new PlatformID(PLATFORM, authorName, config.id),
+					authorName,
+					authorUrl,
+					""),
+				datetime: undefined,
+				duration: duration,
+				viewCount: views,
+				url: videoUrl.startsWith("http") ? videoUrl : URL_BASE + videoUrl,
+				isLive: false,
+				isShort: true,
+				description: "",
+				video: new VideoSourceDescriptor(sources),
+				rating: new RatingLikes(parseInt(short.likeNumber) || 0)
+			}));
+		} else {
+			// No sources available, return metadata only
+			resultArray.push(new PlatformVideo({
+				id: new PlatformID(PLATFORM, videoId, config.id),
+				name: title ?? "",
+				thumbnails: new Thumbnails([new Thumbnail(thumbnailUrl, 0)]),
+				author: new PlatformAuthorLink(new PlatformID(PLATFORM, authorName, config.id),
+					authorName,
+					authorUrl,
+					""),
+				datetime: undefined,
+				duration: duration,
+				viewCount: views,
+				url: videoUrl.startsWith("http") ? videoUrl : URL_BASE + videoUrl,
+				isLive: false,
+				isShort: true
+			}));
+		}
+	});
+
+	log(`Found ${resultArray.length} shorts`);
+
+	// Always hasMore=true since each fetch returns new random shorts
+	var hasMore = resultArray.length > 0;
+
+	return new PornhubVideoPager(resultArray, hasMore, "/shorties", {}, 1);
+}
 
 
 
@@ -578,8 +853,12 @@ class PornhubVideoPager extends VideoPager {
 	constructor(results, hasMore, path, params, page) {
 		super(results, hasMore, { path, params,  page});
 	}
-	
+
 	nextPage() {
+		// For shorts, call getShortsPager to get fresh random shorts
+		if (this.context.path === "/shorties") {
+			return getShortsPager(0, 12);
+		}
 		return getVideoPager(this.context.path, this.context.params, (this.context.page ?? 1) + 1);
 	}
 }
