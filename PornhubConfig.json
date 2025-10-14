@@ -16,7 +16,7 @@
 	"id": "dce06efc-862e-11ee-b9d1-0242ac120002",
 	
 	"packages": ["Http", "DOMParser"],
-	
+	"allowAllHttpHeaderAccess": true,
 	"allowEval": false,
 	"allowUrls": [
 		".pornhub.com"

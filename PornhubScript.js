@@ -5,8 +5,11 @@ const PLATFORM_CLAIMTYPE = 3;
 const PLATFORM = "PornHub";
 
 var config = {};
-// session token
-var token = "";
+var state = {
+	token: "",
+	sessionCookie: ""
+};
+
 // headers (including cookie by default, since it's used for each session later)
 var headers = {
 	"Cookie": "platform=pc; accessAgeDisclaimerPH=2",
@@ -42,8 +45,21 @@ function buildQuery(params) {
 
 
 //Source Methods
-source.enable = function (conf) {
+source.enable = function (conf, settings, savedStateStr) {
 	config = conf ?? {};
+
+	if (savedStateStr) {
+		try {
+			state = JSON.parse(savedStateStr);
+			log("State loaded: token=" + (state.token ? "present" : "empty"));
+		} catch (e) {
+			log("Failed to parse saved state: " + e);
+		}
+	}
+};
+
+source.saveState = function() {
+	return JSON.stringify(state);
 };
 
 source.getHome = function () {
@@ -54,13 +70,68 @@ source.getHome = function () {
 
 source.searchSuggestions = function(query) {
 	if(query.length < 1) return [];
-	var json = JSON.parse(getPornhubContentData(URL_BASE + "/video/search_autocomplete?pornstars=true&token=" + token + "&orientation=straight&q=" + query + "&alt=0"));
-	if (json.length == 0) return [];
-	var suggestions = json.queries;
-	// var suggestions = json.channels.forEach((m) => {
-	// 	return m.name
-	// });
-	return suggestions
+
+	try {
+		// Ensure we have a session token
+		if(state.token === "") {
+			log("Token is empty, refreshing session");
+			try {
+				refreshSession();
+			} catch(e) {
+				log("Session refresh failed: " + e);
+				return [];
+			}
+		}
+
+		if(state.token === "") {
+			log("Token still empty after refresh, autocomplete unavailable");
+			return [];
+		}
+
+		var apiUrl = URL_BASE + "/api/v1/video/search_autocomplete?pornstars=true&token=" + state.token + "&orientation=straight&q=" + encodeURIComponent(query) + "&alt=0";
+		log("Fetching autocomplete: " + apiUrl);
+
+		// Use custom headers for autocomplete API - must include X-Requested-With
+		var autocompleteHeaders = {
+			"Cookie": headers["Cookie"],
+			"User-Agent": headers["User-Agent"],
+			"Accept": "*/*",
+			"Accept-Language": "en-US,en;q=0.5",
+			"Referer": URL_BASE + "/",
+			"X-Requested-With": "XMLHttpRequest",
+			"Content-Type": "application/x-www-form-urlencoded"
+		};
+
+		var resp = http.GET(apiUrl, autocompleteHeaders, false);
+		if (!resp.isOk) {
+			log("Autocomplete request failed: " + resp.code);
+			return [];
+		}
+
+		var response = resp.body;
+		if (!response || response.length === 0) {
+			log("Empty autocomplete response");
+			return [];
+		}
+
+		var json = JSON.parse(response);
+		if (!json || json.length === 0) {
+			log("Empty autocomplete JSON");
+			return [];
+		}
+
+		// The API returns {queries: [...], ...}
+		if (json.queries && Array.isArray(json.queries)) {
+			log("Autocomplete returned " + json.queries.length + " suggestions");
+			return json.queries;
+		}
+
+		log("No queries field in autocomplete response");
+		return [];
+	} catch(e) {
+		log("Search suggestions failed: " + e);
+		return [];
+	}
 };
 
 source.getSearchCapabilities = () => {
@@ -107,9 +178,7 @@ source.searchChannelContents = function (channelUrl, query, type, order, filters
 };
 
 source.searchChannels = function (query) {
-
-	// todo not working?
-	return getChannelPager('/channels/search', {channelSearch: query}, 1);
+	return getMultiChannelPager(query, 1);
 };
 
 
@@ -554,7 +623,7 @@ function getShortsPager(from, count) {
 
 // the only things you need for a valid session are as follows:
 // 1.) token
-// 2.) cookie labeled "ss" in headers
+// 2.) cookies: __l, __s, and ss
 // this will allow you to get search suggestions!!
 function refreshSession() {
 	const resp = http.GET(URL_BASE, headers);
@@ -562,31 +631,69 @@ function refreshSession() {
 		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
 	else {
 		var dom = domParser.parseFromString(resp.body);
-		
-		// Add null check for search input
 
+		// Extract token from search input
 		const searchInput = dom.querySelector("#searchInput");
 		if (searchInput) {
-			token = searchInput.getAttribute("data-token");
+			state.token = searchInput.getAttribute("data-token");
+			log("Token extracted: " + (state.token ? state.token.substring(0, 20) + "..." : "null"));
 		} else {
 			log("Warning: #searchInput not found, token extraction failed");
-			// Try alternative selector or method
 		}
-		
-		// Add null check for meta tag
+
+		// Extract session ID from meta tag
+		var sessionId = "";
 		const metaTag = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]");
 		if (metaTag) {
 			const adContextInfo = metaTag.getAttribute("data-info");
-			const sessionId = JSON.parse(adContextInfo)["session_id"];
-			headers["Cookie"] = `platform=pc; accessAgeDisclaimerPH=2; ss=${sessionId}`;
+			sessionId = JSON.parse(adContextInfo)["session_id"];
+			state.sessionCookie = sessionId;
+			log("Session ID extracted: ss=" + sessionId.substring(0, 10) + "...");
 		} else {
-			log("Warning: meta tag not found, session cookie extraction failed");
-			// Keep default cookies
+			log("Warning: meta tag not found, session ID extraction failed");
 		}
 
-		log("New session created")
+		// Extract cookies from response headers
+		// The __l and __s cookies are essential for autocomplete to work
+		var cookiesFromHeaders = [];
+		log("Response headers available: " + (resp.headers ? "yes" : "no"));
+		if (resp.headers) {
+			log("Headers keys: " + Object.keys(resp.headers).join(", "));
+			if (resp.headers["set-cookie"]) {
+				var setCookieHeaders = resp.headers["set-cookie"];
+				log("set-cookie header found, type: " + typeof setCookieHeaders);
+				if (typeof setCookieHeaders === 'string') {
+					setCookieHeaders = [setCookieHeaders];
+				}
 
+				for (var i = 0; i < setCookieHeaders.length; i++) {
+					var cookieHeader = setCookieHeaders[i];
+					// Extract cookie name and value (format: "name=value; path=/; ...")
+					var cookieParts = cookieHeader.split(';')[0].trim();
+					cookiesFromHeaders.push(cookieParts);
+					log("Extracted cookie: " + cookieParts);
+				}
+			} else {
+				log("No set-cookie header found");
+			}
+		}
 
+		// Build the complete cookie string
+		// Start with required cookies
+		var cookieString = "platform=pc; accessAgeDisclaimerPH=2";
+
+		// Add cookies from response headers (__l, __s, etc.)
+		for (var i = 0; i < cookiesFromHeaders.length; i++) {
+			cookieString += "; " + cookiesFromHeaders[i];
+		}
+
+		// Add session ID if we got one from meta tag
+		if (sessionId) {
+			cookieString += "; ss=" + sessionId;
+		}
+
+		headers["Cookie"] = cookieString;
+		log("Session refreshed - token: " + (state.token ? "present" : "empty") + ", cookies set: " + cookiesFromHeaders.length);
 	}
 }
 
@@ -600,8 +707,8 @@ source.getComments = function (url) {
 	var html = getPornhubContentData(url);
 	var dom = domParser.parseFromString(html);
 	var videoId = getVideoId(dom);
-	if(token == "") refreshSession();
-	return getCommentPager(`/comment/show?id=${videoId}&popular=0&what=video&token=${token}`, {}, 1);
+	if(state.token == "") refreshSession();
+	return getCommentPager(`/comment/show?id=${videoId}&popular=0&what=video&token=${state.token}`, {}, 1);
 }
 
 
@@ -901,13 +1008,127 @@ class PornhubCommentPager extends CommentPager {
 	constructor(results, hasMore, path, params, page) {
 		super(results, hasMore, { path, params, page });
 	}
-	
+
 	nextPage() {
 		return getCommentPager(this.context.path, this.context.params, (this.context.page ?? 1) + 1);
 	}
 }
 
+// Multi-channel pager for combined pornstars/models/channels search
+class PornhubMultiChannelPager extends ChannelPager {
+	constructor(results, hasMore, query, page) {
+		super(results, hasMore, { query, page });
+	}
 
+	nextPage() {
+		return getMultiChannelPager(this.context.query, (this.context.page ?? 1) + 1);
+	}
+}
+
+// Search both pornstars and channels
+function getMultiChannelPager(query, page) {
+	log(`getMultiChannelPager query=${query} page=${page}`);
+
+	var allChannels = [];
+	var hasMore = false;
+
+	// Search pornstars
+	try {
+		var pornstarHtml = getPornhubContentData(URL_BASE + "/pornstars/search?search=" + encodeURIComponent(query) + "&page=" + page);
+		var pornstars = getPornstarsFromSearch(pornstarHtml);
+		allChannels = allChannels.concat(pornstars.channels);
+		hasMore = hasMore || pornstars.hasNextPage;
+		log(`Found ${pornstars.channels.length} pornstars`);
+	} catch(e) {
+		log("Failed to search pornstars: " + e);
+	}
+
+	// Search channels
+	try {
+		var channelHtml = getPornhubContentData(URL_BASE + "/channels/search?channelSearch=" + encodeURIComponent(query) + "&page=" + page);
+		var channels = getChannels(channelHtml);
+		allChannels = allChannels.concat(channels.channels);
+		hasMore = hasMore || channels.hasNextPage;
+		log(`Found ${channels.channels.length} channels`);
+	} catch(e) {
+		log("Failed to search channels: " + e);
+	}
+
+	log(`Found ${allChannels.length} total creators`);
+
+	return new PornhubMultiChannelPager(allChannels.map(c => {
+		return new PlatformAuthorLink(new PlatformID(PLATFORM, c.name, config.id),
+			c.displayName,
+			URL_BASE + c.url,
+			c.avatar ?? "",
+			c.subscribers);
+	}), hasMore, query, page);
+}
+
+// Parse pornstars from search results
+function getPornstarsFromSearch(html) {
+	var dom = domParser.parseFromString(html);
+	var resultArray = [];
+
+	// Try multiple possible selectors for pornstar search results
+	var pornstarElements = dom.querySelectorAll("div.pornstarsSearchResult li, ul.pornstars-list li, li.pornstar-item, div.performerCard");
+
+	if (pornstarElements.length === 0) {
+		log("No pornstar elements found with standard selectors");
+		return { hasNextPage: false, channels: [] };
+	}
+
+	pornstarElements.forEach(function(li) {
+		var linkElement = li.querySelector("a");
+		if (!linkElement) return;
+
+		var url = linkElement.getAttribute("href");
+		if (!url || !url.includes("/pornstar/")) return;
+
+		var imgElement = li.querySelector("img");
+		var avatar = imgElement ? (imgElement.getAttribute("data-src") || imgElement.getAttribute("src") || "") : "";
+
+		// Try different selectors for name
+		var nameElement = li.querySelector(".pornStarName, .performerCardName, .title");
+		var displayName = nameElement ? nameElement.textContent.trim() : "";
+		if (!displayName && linkElement.getAttribute("title")) {
+			displayName = linkElement.getAttribute("title");
+		}
+
+		// Try different selectors for subscriber count
+		var rankElement = li.querySelector(".rank_number, .subscribers, .subscribersText");
+		var subscribers = 0;
+		if (rankElement) {
+			var subsText = rankElement.textContent.trim();
+			subscribers = subsText.includes("K") || subsText.includes("M") ? parseNumberSuffix(subsText) : parseInt(subsText) || 0;
+		}
+
+		var name = url ? url.split("/").filter(s => s).pop() : displayName;
+
+		if (url && displayName) {
+			resultArray.push({
+				subscribers: subscribers,
+				name: name,
+				url: url,
+				displayName: displayName,
+				avatar: avatar
+			});
+		}
+	});
+
+	var hasNextPage = false;
+	var pageNextNode = dom.querySelector("li.page_next a, a.page-next, .pagination a.next");
+	if (pageNextNode && pageNextNode.getAttribute("href") && pageNextNode.getAttribute("href") !== "") {
+		hasNextPage = true;
+	}
+
+	log(`getPornstarsFromSearch: Found ${resultArray.length} pornstars`);
+
+	return {
+		hasNextPage: hasNextPage,
+		channels: resultArray
+	};
+}
 
 
 function getChannelPager(path, params, page) {
