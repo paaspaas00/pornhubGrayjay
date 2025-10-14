@@ -9,8 +9,8 @@
 	"scriptUrl": "./PornhubScript.js",
 	"version": 8,
 	
-	"scriptPublicKey": "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAyQkyt5K0AJ5RGkY3NVcnmrDgr/D5RPc1uFepmb9SSV6QkVmvuZiyg0o1ShnJ4KojG+KlMCA5C8klgW2GTawmPaQljdE5g/ToZLSZgA3elNLV6KTYi9V/BPrj5GUI8YvaDNxQTgr+8dttklrVema0JHqt8kEi9tfxkKbC+en7loRj/KhKaKmjNtbQfntCsK1KoUqTJ2bXYqGfKh1w9ALO8UcQRUeN9FPAUpAVrMLksOR8VwH8uANA9xXeiAhtJ8PdyE0ODzNftUsOZn/Q7v+ITUJmeP1hGPI338k6V/3xhw9sVn2VTOFSd1a7P029tu/63uQCcZL4aQqTTDhG/8gI4ekwZ+xW4w06FRQqoKhSCO8/CdLiwjknUPHw8Xtpw3tjVcKlRymASOcLQLAdDuTbr3kYmDo2VwWUs6HnV/Pz8YHVg6V/uWZJPDdXFgp8/KSrs41jFj0TeBtJ4846mGfPxOV6skDqUsyGJ0flrGnX6JATqv7tuiZsKUmPQcbZvyTjAgMBAAE=",
-	"scriptSignature": "UFHAH9hi4TEFANlVZltUCZn2qNrzIEklY2TpSpYjngGGqKm9hDA4VNXJap0J7r2ja66MafZ6OYD0vyAPl0XZkIAxjyI3WA55WC3C00C9n8nOoefTPcUVbRSaUIIxP7urnzAm4QM3eJrMZeCrNqpbRYfUE9CjEwQGpoVIVBvuGtlyFjOtpMIZwX9qMSaIfu9kpF59kHnclvp+4h6/o3WOBVp/DjS6WWnfESt8KE83aw8VJX9r4YSsQlqz2fzW0V4Oxq9qDUgMjsbsEx4vjdv0Vzq+kKwiHRrfbOkLxexiC07ppTCoExESUGK7BPzYFY9tfEhSKkbM6288kpSpI9lmWSQHcPO0KTEKXkhOmdbvcQiJ3c+d/GkgrFeqWbQ+43GHhN4tZ42gherkpVyEScTwUrFf1cUJ101Bjp27QlM2IhB7C3mITIBJnnsiDAO1lx8gjvfUBRltp+ZnPY+Db7CKFSlryslhbNkCm+BuP2tf8l7NEmBTATuHBrc/JQoazCnE",
+	"scriptPublicKey": "",
+	"scriptSignature": "",
 
 	"iconUrl": "./pornhub.png",
 	"id": "dce06efc-862e-11ee-b9d1-0242ac120002",
