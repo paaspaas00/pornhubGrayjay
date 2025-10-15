@@ -7,18 +7,32 @@
 	"sourceUrl": "https://raw.githubusercontent.com/paaspaas00/pornhubGrayjay/main/PornhubConfig.json",
 	"repositoryUrl": "https://github.com/paaspaas00/pornhubGrayjay/",
 	"scriptUrl": "./PornhubScript.js",
-	"version": 8,
-	
+	"version": 10,
+
 	"scriptPublicKey": "",
 	"scriptSignature": "",
 
 	"iconUrl": "./pornhub.png",
 	"id": "dce06efc-862e-11ee-b9d1-0242ac120002",
-	
+
 	"packages": ["Http", "DOMParser"],
 	"allowAllHttpHeaderAccess": true,
-	"allowEval": false,
+	"allowEval": true,
 	"allowUrls": [
 		".pornhub.com"
-	]
+	],
+	"changelog": {
+		"10": [
+			"Remove invalid Signature;",
+			"Added channel statistics to description (total videos, views, subscribers);",
+			"Implemented dynamic social media link extraction for channels, pornstars, and models;",
+			"Fixed country-specific subdomain handling;",
+			"Fixed author URLs in channel content to show full channel URL instead of username;",
+			"Implemented httpGET wrapper with automatic session management and bot detection bypass;",
+			"Increased retry attempts to 3 with 1-second delay between retries;",
+			"Added content recommendations;",
+			"Implemented shorts tab;",
+			"Fixed autocomplete search suggestions;"
+		]
+	}
 }
