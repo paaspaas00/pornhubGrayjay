@@ -43,6 +43,26 @@ function buildQuery(params) {
 	return (query && query.length > 0) ? `?${query}` : ""; 
 }
 
+function selectedFilterValue(filters, id) {
+	if (!filters || !filters[id]) return "";
+	const values = Array.isArray(filters[id]) ? filters[id] : [filters[id]];
+	return values.length > 0 ? String(values[0] ?? "") : "";
+}
+
+function imageUrl(element) {
+	if (!element) return "";
+	const attributes = ["data-src", "data-thumb_url", "data-mediumthumb", "data-image", "data-path", "src"];
+	for (const attribute of attributes) {
+		let value = element.getAttribute(attribute);
+		if (!value || value.startsWith("data:image/")) continue;
+		value = value.replace(/&amp;/g, "&");
+		if (value.startsWith("//")) return "https:" + value;
+		if (value.startsWith("/")) return URL_BASE + value;
+		return value;
+	}
+	return "";
+}
+
 
 //Source Methods
 source.enable = function (conf, settings, savedStateStr) {
@@ -142,23 +162,11 @@ source.getSearchCapabilities = () => {
 };
 
 source.search = function (query, type, order, filters) {
-	//let sort = order;
-	//if (sort === Type.Order.Chronological) {
-	//	sort = "-publishedAt";
-	//}
-//
-	//const params = {
-	//	search: query,
-	//	sort
-	//};
-//
-	//if (type == Type.Feed.Streams) {
-	//	params.isLive = true;
-	//} else if (type == Type.Feed.Videos) {
-	//	params.isLive = false;
-	//}
-
-	return getVideoPager("/video/search", {search: query}, 1);
+	const section = selectedFilterValue(filters, "section");
+	const params = {};
+	if (query) params.search = query;
+	if (section) params.c = section;
+	return getVideoPager(query ? "/video/search" : "/video", params, 1);
 };
 
 source.getSearchChannelContentsCapabilities = function () {
@@ -351,7 +359,7 @@ source.getContentRecommendations = function(url) {
 				const videoUrl = aElement.getAttribute('href');
 				const imgElement = li.querySelector('img');
 				if (imgElement && videoUrl) {
-					const thumbnailUrl = imgElement.getAttribute('src') || imgElement.getAttribute('data-src') || imgElement.getAttribute('data-thumb_url');
+					const thumbnailUrl = imageUrl(imgElement);
 					const title = aElement.getAttribute("title") || aElement.textContent.trim() || imgElement.getAttribute("alt");
 					const durationVar = li.querySelector(".duration, var.duration");
 					const durationStr = durationVar ? durationVar.textContent.trim() : "0:00";
@@ -1498,7 +1506,7 @@ function getChannelVideosPager(path, params, page) {
 				const videoUrl = aElement.getAttribute('href');
 				const imgElement = aElement.querySelector('img');
 				if (imgElement && videoUrl) {
-					const thumbnailUrl = imgElement.getAttribute('src');
+					const thumbnailUrl = imageUrl(imgElement);
 					const title = imgElement.getAttribute("alt") || imgElement.getAttribute("data-title") || aElement.getAttribute("data-title");
 					const durationVar = aElement.querySelector(".duration");
 					const durationStr = durationVar ? durationVar.textContent.trim() : "0:00";
@@ -1573,7 +1581,7 @@ function getModelVideosPager(path, params, page) {
 					const videoUrl = aElement.getAttribute('href');
 					const imgElement = aElement.querySelector('img');
 					if (imgElement && videoUrl) {
-						const thumbnailUrl = imgElement.getAttribute('src');
+						const thumbnailUrl = imageUrl(imgElement);
 						const title = imgElement.getAttribute("alt") || imgElement.getAttribute("data-title") || aElement.getAttribute("data-title");
 						const durationVar = aElement.querySelector(".duration");
 						const durationStr = durationVar ? durationVar.textContent.trim() : "0:00";
@@ -1656,7 +1664,7 @@ function getPornstarVideosPager(path, params, page) {
 					const videoUrl = aElement.getAttribute('href');
 					const imgElement = aElement.querySelector('img');
 					if (imgElement && videoUrl) {
-						const thumbnailUrl = imgElement.getAttribute('src');
+						const thumbnailUrl = imageUrl(imgElement);
 						const title = imgElement.getAttribute("alt") || imgElement.getAttribute("data-title") || aElement.getAttribute("data-title");
 						const durationVar = aElement.querySelector(".duration");
 						const durationStr = durationVar ? durationVar.textContent.trim() : "0:00";
@@ -1747,7 +1755,7 @@ function getChannelContents(html) {
 		if (!videoUrl) return;
 
 		const imgElement = li.querySelector("img");
-		var thumbnailUrl = imgElement ? imgElement.getAttribute("src") : "";
+		var thumbnailUrl = imageUrl(imgElement);
 
 		var videoId = li.getAttribute("data-video-id");
 		if (!videoId) return;
@@ -1814,7 +1822,7 @@ function getPornstarContents(html) {
 		if (!videoUrl) return;
 
 		const imgElement = li.querySelector("img");
-		var thumbnailUrl = imgElement ? imgElement.getAttribute("src") : "";
+		var thumbnailUrl = imageUrl(imgElement);
 
 		var videoId = li.getAttribute("data-video-id");
 		if (!videoId) return;
@@ -1878,7 +1886,7 @@ function getModelContents(html) {
 		if (!videoUrl) return;
 
 		const imgElement = li.querySelector("img");
-		var thumbnailUrl = imgElement ? imgElement.getAttribute("src") : "";
+		var thumbnailUrl = imageUrl(imgElement);
 
 		var videoId = li.getAttribute("data-video-id");
 		if (!videoId) return;
@@ -1936,7 +1944,7 @@ function getVideoPager(path, params, page) {
 			isLive: false
 		});
 
-	}), true, path, params, page);
+	}), vids.hasNextPage, path, params, page);
 }
 
 
@@ -1962,6 +1970,12 @@ function getVideos(html, ulId) {
 	}
 
 	var resultArray = []
+	var hasNextPage = false;
+	var nextNodes = node.getElementsByClassName("page_next");
+	if (nextNodes.length > 0) {
+		var nextHref = nextNodes[0].firstChild ? nextNodes[0].firstChild.getAttribute("href") : "";
+		hasNextPage = !!nextHref;
+	}
 
     if (ulElement) {
         // Get all li elements inside the ul with class "pcVideoListItem" (new class)
@@ -1988,7 +2002,7 @@ function getVideos(html, ulId) {
 
                     if (imgElement) {
                         // Get the "src" attribute as "thumbnailUrl"
-                        const thumbnailUrl = imgElement.getAttribute('src');
+						const thumbnailUrl = imageUrl(imgElement);
 
                         // Title can be from the img's alt or data-title, or the a tag's data-title, or the .thumbnailTitle span
                         const title = imgElement.getAttribute("alt") || imgElement.getAttribute("data-title") || aElement.getAttribute("data-title");
@@ -2034,6 +2048,7 @@ function getVideos(html, ulId) {
 
 	return {
 		totalElemsPages: undefined,
+		hasNextPage: hasNextPage,
 		videos: resultArray
 	};
 

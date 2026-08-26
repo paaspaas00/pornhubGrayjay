@@ -8,7 +8,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/paaspaas00/pornhubGrayjay/main/PornhubConfig.json",
 	"repositoryUrl": "https://github.com/paaspaas00/pornhubGrayjay/",
 	"scriptUrl": "./PornhubScript.js",
-	"version": 11,
+	"version": 12,
 
 	"scriptPublicKey": "",
 	"scriptSignature": "",
@@ -23,6 +23,10 @@
 		".pornhub.com"
 	],
 	"changelog": {
+		"12": [
+			"Add declarative Grayjoy filters;",
+			"Improve lazy thumbnail extraction and paging;"
+		],
 		"11": [
 			"Fix playing videos, isChannelUrl check;",
 			"Fix loading some channels;"
