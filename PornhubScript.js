@@ -165,7 +165,7 @@ source.search = function (query, type, order, filters) {
 	const section = selectedFilterValue(filters, "section");
 	const params = {};
 	if (query) params.search = query;
-	if (section) params.c = section;
+	if (section) params[query ? "filter_category" : "c"] = section;
 	return getVideoPager(query ? "/video/search" : "/video", params, 1);
 };
 

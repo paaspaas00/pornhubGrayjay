@@ -8,7 +8,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/paaspaas00/pornhubGrayjay/main/PornhubConfig.json",
 	"repositoryUrl": "https://github.com/paaspaas00/pornhubGrayjay/",
 	"scriptUrl": "./PornhubScript.js",
-	"version": 14,
+	"version": 15,
 
 	"scriptPublicKey": "",
 	"scriptSignature": "",
@@ -23,6 +23,9 @@
 		".pornhub.com"
 	],
 	"changelog": {
+		"15": [
+			"Fix filtered search requests;"
+		],
 		"14": [
 			"Limit declarative filters to search;"
 		],
