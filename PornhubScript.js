@@ -785,14 +785,19 @@ function getCommentPager(path, params, page) {
 	params = { ... params, page }
 
 	const url = URL_BASE + path;
-	const urlWithParams = `${url}${buildQuery(params)}`;
+	const query = buildQuery(params);
+	const urlWithParams = query
+		? `${url}${url.includes("?") ? "&" + query.substring(1) : query}`
+		: url;
 
 	// Comment API requires a valid token in the URL path
 	var html = httpGET(urlWithParams, { requireToken: true });
 
 	var comments = getComments(html);
 	// if no comments, return empty page
-	if (comments.total === 0) return new PornhubCommentPager();
+	if (comments.total === 0) {
+		return new PornhubCommentPager([], false, path, params, page);
+	}
 	
 	return new PornhubCommentPager(comments.comments.map(c => {
 		return new Comment({
@@ -804,7 +809,7 @@ function getCommentPager(path, params, page) {
 			message: c.message,
 			rating: new RatingLikesDislikes(c.voteUp, c.voteDown),
 			date: Math.round(c.date.getTime() / 1000),
-			replyCount: c.totalReplies,
+			replyCount: c.totalReplies || 0,
 			context: { id: c.id }
 		});
 	}), comments.total > page_end, path, params, page);
@@ -818,35 +823,43 @@ function getComments(html) {
 	var dom = domParser.parseFromString(html);
 
 	var comments = []
-
-	const total = parseInt(dom.querySelector("div#cmtWrapper div.cmtHeader h2 span").textContent.trim().replace("(", "").replace(")", ""));
+	const commentBlocks = dom.querySelectorAll('div#cmtContent div.commentBlock');
+	const totalNode = dom.querySelector("div#cmtWrapper div.cmtHeader h2 span");
+	const parsedTotal = totalNode
+		? parseInt(totalNode.textContent.replace(/[^0-9]/g, ""))
+		: NaN;
+	const total = Number.isFinite(parsedTotal) ? parsedTotal : commentBlocks.length;
 	if (total > 0) {
 		// Loop through each comment block
 		// todo nested blocks
-		dom.querySelectorAll('div#cmtContent div.commentBlock').forEach(commentBlock => {
-			const id = commentBlock.getAttribute("class").match(/commentTag(\d+)/)[1];
+		commentBlocks.forEach(commentBlock => {
+			const className = commentBlock.getAttribute("class") || "";
+			const idMatch = className.match(/commentTag([A-Za-z0-9_-]+)/);
+			if (!idMatch) return;
 
-			const avatar = commentBlock.querySelector("img").getAttribute("src");
-			const username = commentBlock.querySelector('.usernameLink').textContent.trim();
-			const date = parseRelativeDate(commentBlock.querySelector('div.date').textContent.trim());
-			const message = commentBlock.querySelector('.commentMessage span').textContent.trim();
-			const voteUp = parseInt(commentBlock.querySelector('span.voteTotal').textContent.trim());
-			var isVoteDownPresent = commentBlock.querySelectorAll('div.actionButtonsBlock span') !== null;
-
-			var voteDown = 0;
-			if (isVoteDownPresent) {
-				voteDown = parseInt(commentBlock.querySelectorAll('div.actionButtonsBlock span')[1].textContent.trim());
-			}
+			const avatar = imageUrl(commentBlock.querySelector("img"));
+			const usernameNode = commentBlock.querySelector('.usernameLink');
+			const dateNode = commentBlock.querySelector('div.date');
+			const messageNode = commentBlock.querySelector('.commentMessage span');
+			if (!messageNode) return;
+			const voteNodes = commentBlock.querySelectorAll('span.voteTotal');
+			const voteUp = voteNodes.length > 0
+				? parseInt(voteNodes[0].textContent.trim()) || 0
+				: 0;
+			const voteDown = voteNodes.length > 1
+				? parseInt(voteNodes[1].textContent.trim()) || 0
+				: 0;
 
 			// Push comment details to the comments array
 			comments.push({
-				id,
+				id: idMatch[1],
 				avatar,
-				username,
-				date,
-				message,
+				username: usernameNode ? usernameNode.textContent.trim() : "Unknown",
+				date: parseRelativeDate(dateNode ? dateNode.textContent.trim() : ""),
+				message: messageNode.textContent.trim(),
 				voteUp,
-				voteDown
+				voteDown,
+				totalReplies: 0
 			});
 		});
 
@@ -860,7 +873,7 @@ function getComments(html) {
 
 		return {
 			total: 0,
-			comments: 0
+			comments: []
 		};
 	}
 
@@ -976,8 +989,8 @@ function parseRelativeDate(relativeDate) {
         return oneYearAgo;
     }
 
-	// Handle additional cases or return null if the format is not recognized
-    return 0;
+	// Preserve the date type expected by the comment model even for an unknown label.
+    return new Date(0);
 }
 
 

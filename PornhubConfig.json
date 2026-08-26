@@ -8,7 +8,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/paaspaas00/pornhubGrayjay/main/PornhubConfig.json",
 	"repositoryUrl": "https://github.com/paaspaas00/pornhubGrayjay/",
 	"scriptUrl": "./PornhubScript.js",
-	"version": 16,
+	"version": 17,
 
 	"scriptPublicKey": "",
 	"scriptSignature": "",
@@ -23,6 +23,9 @@
 		".pornhub.com"
 	],
 	"changelog": {
+		"17": [
+			"Repair comment loading and tolerate current comment identifiers;"
+		],
 		"16": [
 			"Expose declarative browse entries on compatible clients;"
 		],
