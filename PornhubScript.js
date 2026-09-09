@@ -29,14 +29,14 @@ function buildQuery(params) {
 	let query = "";
 	let first = true;
 	for (const [key, value] of Object.entries(params)) {
-		if (value) {
+		if (value !== undefined && value !== null && value !== "") {
 			if (first) {
 				first = false;
 			} else {
 				query += "&";
 			}
 
-			query += `${key}=${value}`;
+			query += `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
 		}
 	}
 
@@ -251,17 +251,41 @@ const supportedResolutions = {
 
 
 
-source.getContentDetails = function (url) {
-	var html = httpGET(url, {});
+function playbackHeaders(url) {
+	// Keep the media request consistent with the page, without sending account cookies to a CDN.
+	return { "Referer": url, "User-Agent": headers["User-Agent"], "Origin": URL_BASE };
+}
 
-	let flashvarsMatch = html.match(/var\s+flashvars_\d+\s*=\s*({.+?});/);
-
-	let flashvars = {};
-	if (flashvarsMatch) {
-		flashvars = JSON.parse(flashvarsMatch[1]);
+function loadPlaybackPage(url) {
+	let lastCode = null;
+	for (let attempt = 0; attempt < 3; attempt++) {
+		// A fresh watch response can select another edge when a CDN serves expired links.
+		const pageUrl = attempt === 0 ? url : url + (url.includes("?") ? "&" : "?") + "_=" + Date.now() + attempt;
+		const html = httpGET(pageUrl, {});
+		const match = html.match(/var\s+flashvars_\d+\s*=\s*({[\s\S]+?});/);
+		if (!match) throw new ScriptException("The video player is not available on this page.");
+		const flashvars = JSON.parse(match[1]);
+		const definitions = (flashvars.mediaDefinitions || []).filter(definition =>
+			definition.format === "hls" && typeof definition.defaultQuality === "boolean" &&
+			typeof definition.quality !== "object" && supportedResolutions[definition.quality] &&
+			typeof definition.videoUrl === "string" && definition.videoUrl.startsWith("https://"));
+		if (!definitions.length) throw new ScriptException("The video has no supported playback streams.");
+		const probe = definitions.find(definition => definition.defaultQuality) || definitions[0];
+		const response = http.GET(probe.videoUrl, playbackHeaders(url));
+		if (response.isOk && /^\s*#EXTM3U/.test(response.body)) {
+			return { html, flashvars, definitions };
+		}
+		lastCode = response.code;
+		if (![403, 404, 410].includes(lastCode)) break;
 	}
+	throw new ScriptException("The streaming server could not provide a valid playlist (HTTP " + lastCode + "). Please try again.");
+}
 
-	var mediaDefinitions = flashvars["mediaDefinitions"];
+source.getContentDetails = function (url) {
+	const page = loadPlaybackPage(url);
+	var html = page.html;
+	const flashvars = page.flashvars;
+	var mediaDefinitions = page.definitions;
 	var sources = [];
 
 	for (const mediaDefinition of mediaDefinitions) {
@@ -274,7 +298,7 @@ source.getContentDetails = function (url) {
 			url: mediaDefinition.videoUrl,
 			duration: flashvars.video_duration ?? 0,
 			priority: true,
-			requestModifier: { headers: { "Referer": URL_BASE + "/" } }
+			requestModifier: { headers: playbackHeaders(url) }
 		}));
 	}
 
@@ -1935,7 +1959,10 @@ function getVideoPager(path, params, page) {
 	const url = URL_BASE + path;
 	const urlWithParams = `${url}${buildQuery(params)}`;
 
-	var html = httpGET(urlWithParams, {});
+	// The search endpoint returns 404 for an empty result set. Do not parse the
+	// recommendation cards on that error page as if they were search results.
+	var html = httpGET(urlWithParams, { emptyOnNotFound: path === "/video/search" });
+	if (html === null) return new PornhubVideoPager([], false, path, params, page);
 
 	// Use different container IDs based on the path
 	// Search pages use "videoSearchResult", home/category pages use "videoCategory"
@@ -2076,6 +2103,7 @@ function getVideos(html, ulId) {
  * @param {Object} options.headers - Optional custom headers to use instead of default headers
  * @param {boolean} options.requireToken - Whether this request requires a valid session token (default: false)
  * @param {boolean} options.parseJson - Whether to parse response as JSON (default: false)
+ * @param {boolean} options.emptyOnNotFound - Return null for an endpoint's empty-result 404 (default: false)
  * @param {number} options.retries - Number of retry attempts on failure (default: 3)
  * @returns {string | Object} - Response body as string or parsed JSON
  * @throws {ScriptException}
@@ -2122,6 +2150,7 @@ function httpGET(url, options = {}) {
 			// Step 2: Make the HTTP request
 			log("httpGET: Fetching " + url + " (attempt " + (retries - attempts + 2) + "/" + (retries + 1) + ")");
 			const resp = http.GET(url, requestHeaders);
+			if (resp.code === 404 && options.emptyOnNotFound === true) return null;
 
 			// Step 3: Check response status
 			if (!resp.isOk) {

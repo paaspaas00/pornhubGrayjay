@@ -8,7 +8,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/paaspaas00/pornhubGrayjay/main/PornhubConfig.json",
 	"repositoryUrl": "https://github.com/paaspaas00/pornhubGrayjay/",
 	"scriptUrl": "./PornhubScript.js",
-	"version": 17,
+	"version": 19,
 
 	"scriptPublicKey": "",
 	"scriptSignature": "",
@@ -20,9 +20,16 @@
 	"allowAllHttpHeaderAccess": true,
 	"allowEval": true,
 	"allowUrls": [
-		".pornhub.com"
+		".pornhub.com",
+		".phncdn.com"
 	],
 	"changelog": {
+		"19": [
+			"Encode search parameters and handle searches with no results without an error;"
+		],
+		"18": [
+			"Refresh stale CDN links before playback and preserve media request headers;"
+		],
 		"17": [
 			"Repair comment loading and tolerate current comment identifiers;"
 		],
