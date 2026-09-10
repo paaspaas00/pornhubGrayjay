@@ -8,7 +8,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/paaspaas00/pornhubGrayjay/main/PornhubConfig.json",
 	"repositoryUrl": "https://github.com/paaspaas00/pornhubGrayjay/",
 	"scriptUrl": "./PornhubScript.js",
-	"version": 19,
+	"version": 20,
 
 	"scriptPublicKey": "",
 	"scriptSignature": "",
@@ -24,6 +24,9 @@
 		".phncdn.com"
 	],
 	"changelog": {
+		"20": [
+			"Open shared playlist links and expose their available videos;"
+		],
 		"19": [
 			"Encode search parameters and handle searches with no results without an error;"
 		],

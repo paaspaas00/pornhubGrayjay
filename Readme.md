@@ -47,6 +47,7 @@ Follow this for development [plugin-development.md](https://gitlab.futo.org/vide
 - Video search
 - Video playback
 - Video info
+- Open shared public playlists in Grayjay and compatible clients
 - View profiles for models, pornstars, and channels
 - Fetching video comments with like/dislike, avatar, etc. (only non-nested ones)
 

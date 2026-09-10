@@ -236,6 +236,106 @@ source.getChannelContents = function (url, type, order, filters) {
 };
 
 
+function playlistIdFromUrl(url) {
+	if (!url) return "";
+	var normalized = normalizePornhubUrl(String(url).trim());
+	var relative = normalized;
+	if (/^https?:\/\//i.test(normalized)) {
+		if (!normalized.toLowerCase().startsWith(URL_BASE.toLowerCase() + "/")) return "";
+		relative = normalized.substring(URL_BASE.length);
+	}
+
+	var pathMatch = relative.match(/^\/playlist\/(\d+)(?:[/?#]|$)/i);
+	if (pathMatch) return pathMatch[1];
+	if (!/^\/playlist(?:[?#]|$)/i.test(relative)) return "";
+	var queryMatch = relative.match(/[?&]id=(\d+)(?:[&#]|$)/i);
+	return queryMatch ? queryMatch[1] : "";
+}
+
+function absolutePlatformUrl(url) {
+	if (!url) return "";
+	if (url.startsWith("//")) return "https:" + url;
+	if (/^https?:\/\//i.test(url)) return normalizePornhubUrl(url);
+	return URL_BASE + (url.startsWith("/") ? url : "/" + url);
+}
+
+function playlistVideoFromParsed(video) {
+	var authorInfo = video.authorInfo || {};
+	var authorName = authorInfo.authorName || "";
+	var authorUrl = absolutePlatformUrl(authorInfo.channel || "");
+	return new PlatformVideo({
+		id: new PlatformID(PLATFORM, String(video.id || video.videoUrl || ""), config.id),
+		name: video.title || "",
+		thumbnails: new Thumbnails([new Thumbnail(video.thumbnailUrl || "", 0)]),
+		author: new PlatformAuthorLink(
+			new PlatformID(PLATFORM, authorName || authorUrl, config.id),
+			authorName,
+			authorUrl,
+			authorInfo.avatar || ""
+		),
+		datetime: undefined,
+		duration: video.duration || 0,
+		viewCount: video.views || 0,
+		url: absolutePlatformUrl(video.videoUrl || ""),
+		isLive: false
+	});
+}
+
+function parsePlaylistPage(html, playlistUrl, playlistId) {
+	var dom = domParser.parseFromString(html, "text/html");
+	var wrapper = dom.getElementById("playlistWrapper");
+	var titleNode = dom.querySelector("h1#watchPlaylist, h1.playlistTitle");
+	var title = titleNode ? titleNode.textContent.trim() : "";
+	if (!wrapper || !title) {
+		throw new ScriptException("This playlist is unavailable, private, or no longer exists.");
+	}
+
+	var parsed = getVideos(html, "videoPlaylist").videos || [];
+	var seen = {};
+	var videos = [];
+	parsed.forEach(function(video) {
+		var key = String(video.id || video.videoUrl || "");
+		if (!key || seen[key] || !video.videoUrl) return;
+		seen[key] = true;
+		videos.push(playlistVideoFromParsed(video));
+	});
+
+	var authorNode = dom.querySelector("#js-aboutPlaylistTabView .usernameWrap a, #playlistWrapper .usernameWrap a");
+	var authorName = authorNode ? authorNode.textContent.trim() : "";
+	var authorUrl = authorNode ? absolutePlatformUrl(authorNode.getAttribute("href") || "") : "";
+	var thumbnail = parsed.length > 0 ? (parsed[0].thumbnailUrl || "") : "";
+
+	return new PlatformPlaylistDetails({
+		id: new PlatformID(PLATFORM, "playlist:" + playlistId, config.id),
+		name: title,
+		thumbnails: new Thumbnails(thumbnail ? [new Thumbnail(thumbnail, 0)] : []),
+		thumbnail: thumbnail,
+		author: new PlatformAuthorLink(
+			new PlatformID(PLATFORM, authorName || authorUrl, config.id),
+			authorName,
+			authorUrl,
+			""
+		),
+		datetime: 0,
+		url: playlistUrl,
+		videoCount: videos.length,
+		contents: new VideoPager(videos, false)
+	});
+}
+
+source.isPlaylistUrl = function(url) {
+	return playlistIdFromUrl(url) !== "";
+};
+
+source.getPlaylist = function(url) {
+	var playlistId = playlistIdFromUrl(url);
+	if (!playlistId) throw new ScriptException("Invalid playlist URL.");
+	var playlistUrl = URL_BASE + "/playlist/" + playlistId;
+	var html = httpGET(playlistUrl, {});
+	return parsePlaylistPage(html, playlistUrl, playlistId);
+};
+
+
 source.isContentDetailsUrl = function(url) {
 	return url.includes(".pornhub.com/view_video.php?viewkey=") || url.includes("/view_video.php?viewkey=");
 };

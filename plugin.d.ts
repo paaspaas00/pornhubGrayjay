@@ -86,6 +86,36 @@ declare class PlatformVideoDetails extends PlatformVideo {
     constructor(obj: PlatformVideoDetailsDef);
 }
 
+declare class PlatformPlaylist extends PlatformContent {
+    constructor(obj: {
+        id: PlatformID,
+        name: string,
+        thumbnails?: Thumbnails,
+        thumbnail?: string,
+        author?: PlatformAuthorLink,
+        datetime?: long,
+        url: string,
+        videoCount: int
+    });
+    videoCount: int;
+    thumbnail?: string;
+}
+
+declare class PlatformPlaylistDetails extends PlatformPlaylist {
+    constructor(obj: {
+        id: PlatformID,
+        name: string,
+        thumbnails?: Thumbnails,
+        thumbnail?: string,
+        author?: PlatformAuthorLink,
+        datetime?: long,
+        url: string,
+        videoCount: int,
+        contents: VideoPager
+    });
+    contents: VideoPager;
+}
+
 declare class PlatformPostDef extends PlatformContentDef {
     thumbnails: string[],
     images: string[],
@@ -360,7 +390,7 @@ interface Source {
     //Optional
     isPlaylistUrl(url: string): boolean;
     //Optional
-    getPlaylist(url): string[];
+    getPlaylist(url: string): PlatformPlaylistDetails;
 }
 
 const source: Source;
