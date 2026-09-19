@@ -8,7 +8,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/paaspaas00/pornhubGrayjay/main/PornhubConfig.json",
 	"repositoryUrl": "https://github.com/paaspaas00/pornhubGrayjay/",
 	"scriptUrl": "./PornhubScript.js",
-	"version": 20,
+	"version": 21,
 
 	"scriptPublicKey": "",
 	"scriptSignature": "",
@@ -24,6 +24,9 @@
 		".phncdn.com"
 	],
 	"changelog": {
+		"21": [
+			"Accept numeric and textual interaction counters in current video metadata;"
+		],
 		"20": [
 			"Open shared playlist links and expose their available videos;"
 		],

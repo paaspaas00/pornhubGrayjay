@@ -63,6 +63,27 @@ function imageUrl(element) {
 	return "";
 }
 
+function parseInteractionCount(value) {
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+	}
+	if (typeof value !== "string") return 0;
+	const normalized = value.trim().replace(/,/g, "");
+	const match = normalized.match(/^([0-9]+(?:\.[0-9]+)?)\s*([KMB])?$/i);
+	if (!match) return 0;
+	const multiplier = { K: 1e3, M: 1e6, B: 1e9 }[(match[2] || "").toUpperCase()] || 1;
+	const parsed = Number.parseFloat(match[1]) * multiplier;
+	return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+}
+
+function interactionCountFromLdJson(ldJson) {
+	const rawStatistics = ldJson && ldJson.interactionStatistic;
+	const statistics = Array.isArray(rawStatistics) ? rawStatistics : [rawStatistics];
+	const statistic = statistics.find(item =>
+		item && item.userInteractionCount !== undefined && item.userInteractionCount !== null);
+	return parseInteractionCount(statistic ? statistic.userInteractionCount : 0);
+}
+
 
 //Source Methods
 source.enable = function (conf, settings, savedStateStr) {
@@ -428,7 +449,7 @@ source.getContentDetails = function (url) {
 	var channelUrl = URL_BASE + userInfoNode.querySelector("a").getAttribute("href");
 
 
-	var views = parseInt(ldJson.interactionStatistic[0].userInteractionCount.replace(/,/g, ""))
+	var views = interactionCountFromLdJson(ldJson);
 
 	var videoId = flashvars.playbackTracking.video_id.toString();
 
